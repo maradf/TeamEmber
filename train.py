@@ -5,16 +5,20 @@ from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 # from sklearn.metrics import classification_report, accuracy_score
 import json
+# import matplotlib
+# matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
 
 # Read the data from random_data.csvls
-og_df = pd.read_csv('bullshit2.csv')
+og_df = pd.read_csv('subset_10_percent2.csv')
 # print(og_df.columns)
 
 def categorize_bp(row):
     # Set the thresholds for categorization
-    if row['bpavg_systolic'] >= 140 or row['bpavg_diastolic'] >= 90:
+    if row['bpavg_systolic_all_m_1_1a_v_1'] >= 140 or row['bpavg_diastolic_all_m_1_1a_v_1'] >= 90:
         return 'high'
-    elif row['bpavg_systolic'] < 90 or row['bpavg_diastolic'] < 60:
+    elif row['bpavg_systolic_all_m_1_1a_v_1'] < 90 or row['bpavg_diastolic_all_m_1_1a_v_1'] < 60:
         return 'low'
     else:
         return 'medium'
@@ -22,10 +26,10 @@ def categorize_bp(row):
 if "bp_category" not in og_df.columns:
     # Apply the categorization function to each row in the DataFrame
     og_df['bp_category'] = og_df.apply(categorize_bp, axis=1)
-    og_df["age"] = og_df["age"].round(0)
+    og_df["age_new"] = og_df["age_new"].round(0)
 
 # print(og_df.columns)
-# og_df.to_csv("bullshit2.csv", index=False)
+og_df.to_csv("subset_10_percent2.csv", index=False)
 
 # assert False
 with open('input.json', 'r') as file:
@@ -34,19 +38,23 @@ with open('input.json', 'r') as file:
 new_value = pd.DataFrame([data]).set_index(".id")
 
 age_val = data["age"]
-gender_val = data["gender"]
-height_val = data["bodylength"]
+gender_val = data["gender_1a_q_1"]
+height_val = data["bodylength_cm_all_m_1_1a_v_1"]
 # print("Age:", age_val)
 # print("Gender:", gender_val)
 # print("Height:", height_val)
-df = og_df[(og_df["age"]==age_val) 
-           & (og_df["gender"]==gender_val)
-           & (og_df['bodylength'].between(height_val - 5, height_val + 5))]
-# print("Total number of datapoints in the dataset:", len(df))
+df = og_df[(og_df["age_new"]==age_val) 
+            & (og_df["gender_1a_q_1"]==gender_val)
+            & (og_df['bodylength_cm_all_m_1_1a_v_1'].between(height_val - 5, height_val + 5))]
+print("Total number of datapoints in the dataset:", len(df))
+# og_df["age_1a_q_1"].hist()
+# plt.show()
 # assert False
 
 # Features and target
-X = df[["income", "bodyweight", "education_years", "work_experience", "savings", "spending", "cigarettes_smoked_per_day", "number_of_cats", "savings_in_bank", "hours_exercise_per_week", "coffees_per_day"]]
+# X = df[["income", "bodyweight_kg_all_m_1_1a_v_1", "education_years", "work_experience", "savings", "spending", "cigarettes_smoked_per_day", "number_of_cats", "savings_in_bank", "hours_exercise_per_week", "coffees_per_day"]]
+# X = df[["bodyweight_kg_all_m_1_1a_v_1",  "cigarettes_smoked_per_day", "number_of_cats", "hours_exercise_per_week", "coffees_per_day"]] 
+X = df[["Rand_var1", "Rand_var2", "Rand_var3", "cigarettes_smoked_per_day", "number_of_cats", "bodyweight_kg_all_m_1_1a_v_1", "hours_exercise_per_week"]]
 y = df['bp_category']
 
 # Split the data into train (80%), dev (10%), and test (10%) sets using a seed of 42
@@ -78,20 +86,30 @@ y_test_pred = model.predict(X_test)
 #     'value3': (35, 55)
 # }
 
-good_ranges = {"income":(10, 5006320),
-    "bodyweight":(60, 80),
-    "education_years":(10,20),
-    "work_experience":(50, 60),
-    "savings":(35126, 66468688),
-    "spending":(3514, 666666),
-    "cigarettes_smoked_per_day":(0, 5),
-    "number_of_cats":(1, 10),
-    "savings_in_bank":(10000, 10000000),
-    "hours_exercise_per_week":(3.5, 14),
-    "coffees_per_day":(2, 5),
-    }
+# good_ranges = {
+#     "bodyweight_kg_all_m_1_1a_v_1":(60, 80),
+    
+    
+    
+#     "cigarettes_smoked_per_day":(0, 5),
+#     "number_of_cats":(1, 10),
+    
+#     "hours_exercise_per_week":(3.5, 14),
+#     "coffees_per_day":(2, 5),
+    # } #"income":(10, 5006320),"education_years":(10,20), "work_experience":(50, 60),"savings":(35126, 66468688),"savings_in_bank":(10000, 10000000),"spending":(3514, 666666),
+# "income","education_years","savings", "spending", "savings_in_bank", "work_experience", 
 # ,,
 
+
+good_ranges = {
+    "Rand_var1": (20, 40),
+    "Rand_var2": (70, 85),
+    "Rand_var3": (200, 295),
+    "cigarettes_smoked_per_day": (0, 5),
+    "number_of_cats":(1, 10),
+    "bodyweight_kg_all_m_1_1a_v_1":(60, 80),
+    "hours_exercise_per_week":(7, 16)
+}
 # Function to calculate the probability change
 def calculate_probability_change(original_proba, new_proba, target_class):
     return new_proba[target_class] - original_proba[target_class]
@@ -99,9 +117,7 @@ def calculate_probability_change(original_proba, new_proba, target_class):
 def get_best_features(X_test, model):
     # Process each value in the test set
 
-    # for idx, row in X_test.iterrows():
-    # row_df = X_test.T  # Convert row to DataFrame
-    # print(row_df)
+
     original_proba = model.predict_proba(X_test)[0]
     original_class = np.argmax(original_proba)
     # print("Original spread of probabilities: ", original_proba)
@@ -140,7 +156,7 @@ def get_best_features(X_test, model):
 save_test_values = True
 # get_best_features(X_test, model)
 if save_test_values:
-    new_value2 = new_value[["income", "bodyweight", "education_years", "work_experience", "savings", "spending", "cigarettes_smoked_per_day", "number_of_cats", "savings_in_bank", "hours_exercise_per_week", "coffees_per_day"]]
+    new_value2 = new_value[["Rand_var1", "Rand_var2", "Rand_var3", "cigarettes_smoked_per_day", "number_of_cats", "bodyweight_kg_all_m_1_1a_v_1", "hours_exercise_per_week"]]#[["income", "bodyweight_kg_all_m_1_1a_v_1", "education_years", "work_experience", "savings", "spending", "cigarettes_smoked_per_day", "number_of_cats", "savings_in_bank", "hours_exercise_per_week", "coffees_per_day"]]
     # print(new_value2)
     best_feature, healthier = get_best_features(new_value2, model)
     new_value["health"] = model.predict(new_value2)
